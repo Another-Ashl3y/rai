@@ -9,13 +9,13 @@ enum Node_Type {
 }
 pub struct Neuron {
     activation: Activation,
-    indexes: Vec<usize>,
+    indices: Vec<usize>,
     weights: Vec<f64>,
     bias: f64
 }
 pub struct Memory {
     activation: Activation,
-    indexes: Vec<usize>,
+    indices: Vec<usize>,
     weights: Vec<f64>,
     bias: f64
 }
