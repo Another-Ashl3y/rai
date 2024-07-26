@@ -10,13 +10,8 @@ use neurons::Network;
 
 fn main() -> io::Result<()> {
     // AI
-    
-
-
-
-
-
-
+    let mut network = Network::new(1, 10);
+    network.set_inputs(vec![0.5]);
 
 
     // Display stuff    
@@ -49,9 +44,10 @@ fn main() -> io::Result<()> {
         extra_box.draw(&stdout)?;
         stdout.flush()?;
 
-        message_box.add_string((n as f64).sin().to_string().red().to_string());
-        update_box.add_string((n as f64).tan().to_string().white().to_string());
-        extra_box.add_string((n as f64).cos().to_string().yellow().to_string());
+        message_box.add_string(network.clone().get_outputs().iter().map(|x| x.to_string()).collect::<String>().green().to_string());
+        // message_box.add_string((n as f64).sin().to_string().red().to_string());
+        // update_box.add_string((n as f64).tan().to_string().white().to_string());
+        // extra_box.add_string((n as f64).cos().to_string().yellow().to_string());
         n += 1;
 
         execute!(io::stdout(), EndSynchronizedUpdate)?;

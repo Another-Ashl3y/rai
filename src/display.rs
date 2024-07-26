@@ -31,8 +31,8 @@ impl Box {
     }
     pub fn draw(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
-        let boundary_1 = self.size.x + 5;
-        let boundary_2 = self.size.x + 11;
+        let boundary_1 = self.size.x-1;
+        let boundary_2 = self.size.x-1;
         for y in 0..self.size.y {
             if y < self.strings.len() as i64 && y < self.size.y - 2 && self.strings.len() as i64 - y - 1 >= 0 {
                 let text = format!(" {:<width$}", &self.strings[self.strings.len() - y as usize - 1][..(boundary_1 as usize)
