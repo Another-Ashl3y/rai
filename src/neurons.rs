@@ -43,7 +43,7 @@ pub struct Neuron {
 }
 
 impl Neuron {
-    pub fn new(input_range: usize, rng: &mut ThreadRng) -> Self {
+    fn new(input_range: usize, rng: &mut ThreadRng) -> Self {
         // Pick Activation
         let activation_rand: f64 = rng.gen();
         let mut activation: Activation = Activation::Relu;
@@ -72,25 +72,30 @@ impl Neuron {
             output: 0.0,
         }
     }
+    fn get_indices(&self) -> Vec<usize> {
+        self.indices.clone()
+    }
+    fn process(&mut self, inputs: Vec<f64>) {
+        
+    }
 }
 
 #[derive(Clone)]
-pub struct Input {
+struct Input {
     output: f64,
 }
 impl Input {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {output:0.0}
     }
-    pub fn set_input(&mut self, value: f64) {
+    fn set_input(&mut self, value: f64) {
         self.output = value;
     }
 }
 
 #[derive(Clone)]
-pub struct Memory {
+struct Memory {
     write: usize,
-    read: usize,
     data: usize,
     output: f64,
 }
@@ -132,7 +137,7 @@ impl Network {
         }
         true
     }
-    pub fn get_outputs(self) -> Vec<f64> {
+    pub fn get_outputs(&self) -> Vec<f64> {
         let mut q: Vec<f64> = Vec::new();
         for n in self.input_size..(self.input_size + self.output_size) {
             match &self.neurones[n] {
@@ -144,10 +149,30 @@ impl Network {
     }
     pub fn calculate(&mut self) {
         let cloned_neurones = self.neurones.clone();
-        self.neurones.iter_mut().for_each(|x| {
-            match x {
-                Node_Type::Normal(ref mut x) => {},
-                Node_Type::Memory(ref mut x) => {},
+        self.neurones.iter_mut().for_each(|n| {
+            match n {
+                Node_Type::Normal(ref mut x) => {
+                    let inputs: Vec<f64> = x.get_indices().into_iter().map(
+                        |z|{
+                        match &cloned_neurones[z] {
+                            Node_Type::Input(w) => return w.output,
+                            Node_Type::Memory(w) => return w.output,
+                            Node_Type::Normal(w) => return w.output,
+                        }}).collect();
+                },
+                Node_Type::Memory(ref mut x) => {
+                    let data: f64 = match &cloned_neurones[x.data] {
+                            Node_Type::Input(w) => w.output,
+                            Node_Type::Memory(w) => w.output,
+                            Node_Type::Normal(w) => w.output,
+                        };
+                    let write: f64 = match &cloned_neurones[x.write] {
+                            Node_Type::Input(w) => w.output,
+                            Node_Type::Memory(w) => w.output,
+                            Node_Type::Normal(w) => w.output,
+                        };
+                    
+                },
                 _=>()
             }
         });
