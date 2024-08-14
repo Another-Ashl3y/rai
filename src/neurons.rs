@@ -1,182 +1,160 @@
-use rand::{rngs::ThreadRng, thread_rng, Rng};
+#![allow(dead_code)]
 
+use rand::prelude::*;
+use rayon::prelude::*;
 
-#[derive(Clone)]
-enum Activation {
+#[derive(Clone, Copy)]
+pub enum Activation {
     Tanh,
-    Step,
-    Relu
+    Linear
 }
-
 
 #[derive(Clone)]
-enum Node_Type {
-    Normal(Neuron),
-    Memory(Memory),
-    Input(Input)
-}
-
-fn tanh(x:f64) -> f64 {
-    x.tanh()
-}
-fn relu(x:f64) -> f64 {
-    if x < 0.0 {
-        return 0.0
-    }
-    x
-}
-fn step(x:f64) -> f64 {
-    if x > 0.0 {
-        return 1.0
-    }
-    0.0
-}
-
-
-#[derive(Clone)]
-pub struct Neuron {
-    activation: Activation,
-    indices: Vec<usize>,
+struct Neuron {
     weights: Vec<f64>,
     bias: f64,
-    output: f64,
+    activation: Activation,
 }
 
 impl Neuron {
-    fn new(input_range: usize, rng: &mut ThreadRng) -> Self {
-        // Pick Activation
-        let activation_rand: f64 = rng.gen();
-        let mut activation: Activation = Activation::Relu;
-        if activation_rand < 0.33 {
-            activation = Activation::Tanh;
-        } 
-        else if activation_rand < 0.66 {
-            activation = Activation::Step;
-        }
-        
-        // Pick Indicies
-        let input_range = 0..input_range;
-        let input_size: usize = rng.gen_range(input_range.clone());
-        let mut indices: Vec<usize> = Vec::new();
+    fn new(rng: &mut ThreadRng, input_size: usize) -> Self {
         let mut weights: Vec<f64> = Vec::new();
         for _ in 0..input_size {
-            indices.push(rng.gen_range(input_range.clone()));
             weights.push(rng.gen());
         }
-
         Self {
-            activation,
-            indices,
             weights,
             bias: rng.gen(),
-            output: 0.0,
+            activation: Activation::Tanh,
         }
     }
-    fn get_indices(&self) -> Vec<usize> {
-        self.indices.clone()
+    fn load(weights: Vec<f64>, bias: f64, activation: Activation) -> Self {
+        Self { weights, bias, activation }
     }
-    fn process(&mut self, inputs: Vec<f64>) {
-        
+    fn save(&self) -> (Vec<f64>, f64, Activation) {
+        (self.weights.clone(), self.bias, self.activation)
+    }
+    fn process(&self, ins: Vec<f64>) -> f64 {
+        let mut total = self.bias;
+
+        total += (0..ins.len()).into_par_iter().map(|i| {ins[i]*self.weights[i]}).sum::<f64>();
+
+        match self.activation {
+            Activation::Linear => return total,
+            Activation::Tanh => return total.tan()
+        }
+    }
+    fn alter(&mut self, index: usize, ammount: f64) {
+        if index >= self.weights.len() {
+            self.bias += ammount;
+        }
+        else {
+            self.weights[index] += ammount;
+        }
+    }
+    fn number_of_weights(&self) -> usize {
+        self.weights.len()
     }
 }
 
-#[derive(Clone)]
-struct Input {
-    output: f64,
-}
-impl Input {
-    fn new() -> Self {
-        Self {output:0.0}
-    }
-    fn set_input(&mut self, value: f64) {
-        self.output = value;
-    }
-}
-
-#[derive(Clone)]
-struct Memory {
-    write: usize,
-    data: usize,
-    output: f64,
-}
-
-#[derive(Clone)]
 pub struct Network {
-    input_size: usize,
-    output_size: usize,
-    neurones: Vec<Node_Type>,
+    neurons: Vec<Vec<Neuron>>,
+    score: f64,
+    change_position: Vec3,
+    change_ammount: f64,
 }
 
 impl Network {
-    pub fn new(input_size: usize, output_size: usize) -> Self {
-        let mut neurones: Vec<Node_Type> = Vec::new();
-        for _ in 0..input_size {
-            neurones.push(Node_Type::Input(Input::new()));
-        }
-        let mut rng = thread_rng();
-        for _ in 0..output_size {
-            let mut neuron = Neuron::new(neurones.len(), &mut rng);
-            neuron.activation = Activation::Tanh;
-            neurones.push(Node_Type::Normal(neuron))
-        }
-        Self {
-            input_size,
-            output_size,
-            neurones,
-        }
-    }
-    pub fn set_inputs(&mut self, inputs: Vec<f64>) -> bool {
-        if self.input_size != inputs.len() {
-            return false
-        }
-        for n in 0..inputs.len() {
-            match self.neurones[n] {
-                Node_Type::Input(ref mut x) => x.set_input(inputs[n]),
-                _=>return false
+    pub fn new(size: Vec<(usize, usize)>) -> Self {
+        let mut rng = rand::thread_rng();
+        let mut neurons: Vec<Vec<Neuron>> = Vec::new();
+        for x in size {
+            let mut layer: Vec<Neuron> = Vec::new();
+            for _ in 0..x.0 {
+                layer.push(Neuron::new(&mut rng, x.1))
             }
+            neurons.push(layer);
         }
-        true
+        Self { neurons, score: 0.0, change_position: Vec3::new(), change_ammount: 0.0}
     }
-    pub fn get_outputs(&self) -> Vec<f64> {
-        let mut q: Vec<f64> = Vec::new();
-        for n in self.input_size..(self.input_size + self.output_size) {
-            match &self.neurones[n] {
-                Node_Type::Normal(x) => q.push(x.output),
-                _=>()
+    pub fn save(&self) -> Vec<Vec<(Vec<f64>, f64, Activation)>> {
+        let mut output: Vec<Vec<(Vec<f64>, f64, Activation)>> = Vec::new();
+
+        for layer in self.neurons.clone() {
+            let mut out_layer: Vec<(Vec<f64>, f64, Activation)> = Vec::new();
+            for n in layer {
+                out_layer.push(n.save());
             }
+            output.push(out_layer);
         }
-        q
+
+        output
     }
-    pub fn calculate(&mut self) {
-        let cloned_neurones = self.neurones.clone();
-        self.neurones.iter_mut().for_each(|n| {
-            match n {
-                Node_Type::Normal(ref mut x) => {
-                    let inputs: Vec<f64> = x.get_indices().into_iter().map(
-                        |z|{
-                        match &cloned_neurones[z] {
-                            Node_Type::Input(w) => return w.output,
-                            Node_Type::Memory(w) => return w.output,
-                            Node_Type::Normal(w) => return w.output,
-                        }}).collect();
-                },
-                Node_Type::Memory(ref mut x) => {
-                    let data: f64 = match &cloned_neurones[x.data] {
-                            Node_Type::Input(w) => w.output,
-                            Node_Type::Memory(w) => w.output,
-                            Node_Type::Normal(w) => w.output,
-                        };
-                    let write: f64 = match &cloned_neurones[x.write] {
-                            Node_Type::Input(w) => w.output,
-                            Node_Type::Memory(w) => w.output,
-                            Node_Type::Normal(w) => w.output,
-                        };
-                    
-                },
-                _=>()
+    pub fn load(net: Vec<Vec<(Vec<f64>, f64, Activation)>>) -> Self {
+        let mut neurons: Vec<Vec<Neuron>> = Vec::new();
+        for layer_settings in net {
+            let mut layer: Vec<Neuron> = Vec::new();
+            for setting in layer_settings {
+                layer.push(Neuron::load(setting.0, setting.1, setting.2));
             }
-        });
+            neurons.push(layer);
+        }
+        Self { neurons, score: 0.0, change_position: Vec3::new(), change_ammount: 0.0}
+    }
+    pub fn process(&self, ins: Vec<f64>) -> Vec<f64> {
+        let mut prev = ins;
+
+        for layer in self.neurons.clone() {
+            prev = layer.par_iter().map(|n| n.process(prev.clone())).collect();
+        }
+
+        prev
+    }
+    pub fn go_next_setting(&mut self) {
+        if self.change_position.z < self.get_neuron().number_of_weights() {
+            self.change_position.z += 1;
+            return;
+        }
+        self.change_position.z = 0;
+        if self.change_position.y < self.neurons[self.change_position.x].len() -1 {
+            self.change_position.y += 1;
+            return;
+        }
+        self.change_position.y = 0;
+        if self.change_position.x < self.neurons.len() -1 {
+            self.change_position.x += 1;
+            return;
+        }
+        self.change_position.x = 0;
+    }
+    pub fn shift(&mut self) {
+        self.get_neuron().alter(self.change_position.z, -self.change_ammount)
+    }
+    pub fn undo_shift(&mut self) {
+        self.get_neuron().alter(self.change_position.z, -self.change_ammount)
+    }
+    pub fn set_shift_rate(&mut self, rate: f64) {
+        self.change_ammount = rate;
+    }
+    pub fn flip_shift(&mut self) {
+        self.change_ammount *= -1.0;
+    }
+    pub fn reduce_rate(&mut self) {
+        self.change_ammount *= 0.9998;
+    }
+    fn get_neuron(&self) -> Neuron {
+        self.neurons[self.change_position.x][self.change_position.y].clone()
     }
 }
 
+struct Vec3 {
+    x: usize,
+    y: usize,
+    z: usize,
+}
+impl Vec3 {
+    fn new() -> Self {
+        Self { x: 0, y: 0, z: 0 }
+    }
+}
 
