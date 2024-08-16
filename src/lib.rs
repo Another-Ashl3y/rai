@@ -28,6 +28,12 @@ impl Neuron {
             activation: Activation::Tanh,
         }
     }
+    fn mutate(&mut self, rng: &mut ThreadRng) {
+        for i in 0..self.number_of_weights() {
+            self.weights[i] += rng.gen::<f64>() * 0.001;
+        }
+        self.bias += rng.gen::<f64>() * 0.001;
+    }
     fn load(weights: Vec<f64>, bias: f64, activation: Activation) -> Self {
         Self { weights, bias, activation }
     }
@@ -76,6 +82,16 @@ impl Network {
             neurons.push(layer);
         }
         Self { neurons, score: 0.0, change_position: Vec3::new(), change_ammount: 0.0}
+    }
+    pub fn mutate(&mut self) {
+        let mut rng = thread_rng();
+        for layer in self.neurons.iter_mut() {
+            for node in layer {
+                if rng.gen() {
+                    node.mutate(&mut rng);
+                }
+            }
+        }
     }
     pub fn save(&self) -> Vec<Vec<(Vec<f64>, f64, Activation)>> {
         let mut output: Vec<Vec<(Vec<f64>, f64, Activation)>> = Vec::new();
