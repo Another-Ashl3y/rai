@@ -63,6 +63,7 @@ impl Neuron {
     }
 }
 
+#[derive(Clone)]
 pub struct Network {
     neurons: Vec<Vec<Neuron>>,
     score: f64,
