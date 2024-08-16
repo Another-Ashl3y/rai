@@ -164,6 +164,7 @@ impl Network {
     }
 }
 
+#[derive(Clone)]
 struct Vec3 {
     x: usize,
     y: usize,
