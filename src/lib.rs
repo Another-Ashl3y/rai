@@ -3,13 +3,13 @@
 use rand::prelude::*;
 use rayon::prelude::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Activation {
     Tanh,
     Linear
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct Neuron {
     weights: Vec<f64>,
     bias: f64,
@@ -63,7 +63,7 @@ impl Neuron {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Network {
     neurons: Vec<Vec<Neuron>>,
     score: f64,
@@ -164,7 +164,7 @@ impl Network {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct Vec3 {
     x: usize,
     y: usize,
